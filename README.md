@@ -1,0 +1,1 @@
+Demo to practice making packages with poetry, git hooks and FastAPI
