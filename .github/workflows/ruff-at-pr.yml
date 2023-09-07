@@ -7,3 +7,5 @@ jobs:
       - run: echo "Linting with Ruff"
       - uses: actions/checkout@v3
       - uses: chartboost/ruff-action@v1
+        with:
+          args: --fix
