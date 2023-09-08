@@ -2,12 +2,14 @@ from datetime import date
 import re
 from pydantic import BaseModel, PositiveInt, field_validator, model_validator
 from fastapi import FastAPI
+from uuid import uuid1
 
 # init API for orders
 app = FastAPI()
 
 
 class Order(BaseModel):
+    id: int
     datestamp: str
     buyer: str
     apples: PositiveInt | None = None
@@ -49,15 +51,17 @@ class Order(BaseModel):
 
 @app.post("/orders/{order_id}")
 def create_order(
-    order_id: int,
     datestamp: str,
     buyer: str,
     apples: PositiveInt = None,
     oranges: PositiveInt = None,
 ):
-    # create an order with order ID "order_id", on date "date", from buyer "buyer" that is buying "sale"
-    order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
-    return {"order_id": order_id, "order": order}
+    # create an order on date "date", from buyer "buyer" that is buying "sale"; generate unique id
+    order_id = uuid1().int
+    order = Order(
+        id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
+    )
+    return {"Order": order}
 
 
 # @app.put("/orders/{order_id}")
