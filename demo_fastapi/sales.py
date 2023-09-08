@@ -1,4 +1,5 @@
 from datetime import date
+import re
 from pydantic import BaseModel, PositiveInt, field_validator, model_validator
 from fastapi import FastAPI
 
@@ -7,17 +8,25 @@ app = FastAPI()
 
 
 class Order(BaseModel):
-    datestamp: date
+    datestamp: str
     buyer: str
     apples: PositiveInt | None = None
     oranges: PositiveInt | None = None
 
     @field_validator("datestamp")
     @classmethod
-    # FIXME: want format yyyy/mm/dd but '/' meanings other than char? problematic
-    def check_date_format(cls, ymd: date) -> date:
-        # check if the datetime is in the right format and after the date 2000-01-01
-        assert ymd > date(2000, 1, 1), "Only input orders after 1 January 2000!"
+    def check_date_format(cls, ymd: str) -> str:
+        # check if the datetime is in format yyyy/mm/dd and after the date 2000/01/01
+        print("String", ymd)
+        r = re.compile("\d{4}/\d{2}/\d{2}")
+        assert (
+            len(ymd) == 10
+        ), "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
+        assert r.match(
+            ymd
+        ), "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
+        date_ = date(year=int(ymd[:4]), month=int(ymd[5:7]), day=int(ymd[8:10]))
+        assert date_ >= date(2000, 1, 1), "We only track orders after 1 January 2000"
         return ymd
 
     @field_validator("buyer")
@@ -41,30 +50,30 @@ class Order(BaseModel):
 @app.post("/orders/{order_id}")
 def create_order(
     order_id: int,
-    date: date,
+    datestamp: str,
     buyer: str,
     apples: PositiveInt = None,
     oranges: PositiveInt = None,
 ):
     # create an order with order ID "order_id", on date "date", from buyer "buyer" that is buying "sale"
-    order = Order(datestamp=date, buyer=buyer, apples=apples, oranges=oranges)
+    order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
     return {"order_id": order_id, "order": order}
 
 
-@app.put("/orders/{order_id}")
-def update_item(
-    order_id: int,
-    date: date,
-    buyer: str,
-    apples: PositiveInt = None,
-    oranges: PositiveInt = None,
-):
-    # update order with ID "order_id"
-    order = Order(datestamp=date, buyer=buyer, apples=apples, oranges=oranges)
-    return {"order_id": order_id, "order": order}
+# @app.put("/orders/{order_id}")
+# def update_order(
+#     order_id: int,
+#     datestamp: str,
+#     buyer: str,
+#     apples: PositiveInt = None,
+#     oranges: PositiveInt = None,
+# ):
+#     # update order with ID "order_id"
+#     order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
+#     return {"order_id": order_id, "order": order}
 
 
-@app.get("/orders/{order_id}")
-def read_item(order_id: int):
-    # get data of order with ID "order_id"
-    return {"item_id": order_id, "order": order_id}
+# @app.get("/orders/{order_id}")
+# def read_order(order_id: int):
+#     # get data of order with ID "order_id"
+#     return {"item_id": order_id, "order": order_id}
