@@ -75,7 +75,8 @@ def test_create_order_bad_date_length():
     )
     assert response.status_code == 422
     assert response.json() == {
-        "detail": "Date in wrong format! It should be yyyy/mm/dd (no spaces). Perhaps check for typos?"
+        "detail": "Date in wrong format! It should be yyyy/mm/dd (no spaces). "
+        + "Perhaps check for typos?"
     }
 
 
@@ -86,7 +87,8 @@ def test_create_order_too_old():
     )
     assert response.status_code == 422
     assert response.json() == {
-        "detail": "We only track orders after 1 January 2000. Please enter only valid orders."
+        "detail": "We only track orders after 1 January 2000. "
+        + "Please enter only valid orders."
     }
 
 

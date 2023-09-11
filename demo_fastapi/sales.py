@@ -55,7 +55,8 @@ def create_order(
     apples: PositiveInt = None,
     oranges: PositiveInt = None,
 ):
-    # create an order on date "date", from buyer "buyer" that is buying "sale"; generate unique id
+    # create an order on date "date", from buyer "buyer" that is buying "sale";
+    # generate unique id
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
         raise HTTPException(
@@ -74,7 +75,8 @@ def create_order(
     if len(datestamp) != 10:
         raise HTTPException(
             status_code=422,
-            detail="Date in wrong format! It should be yyyy/mm/dd (no spaces). Perhaps check for typos?",
+            detail="Date in wrong format! It should be yyyy/mm/dd (no spaces). "
+            + "Perhaps check for typos?",
         )
     if not r.match(datestamp):
         raise HTTPException(
@@ -88,7 +90,8 @@ def create_order(
     if date_ < date(2000, 1, 1):
         raise HTTPException(
             status_code=422,
-            detail="We only track orders after 1 January 2000. Please enter only valid orders.",
+            detail="We only track orders after 1 January 2000. "
+            + "Please enter only valid orders.",
         )
 
     # if everything ok, make an order
