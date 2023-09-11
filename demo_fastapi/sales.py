@@ -48,7 +48,7 @@ class Order(BaseModel):
         return self
 
 
-@app.post("/orders/{order_id}")
+@app.post("/orders/")
 def create_order(
     datestamp: str,
     buyer: str,
@@ -96,7 +96,7 @@ def create_order(
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
-    return {"Order": order}
+    return order
 
 
 # @app.put("/orders/{order_id}")

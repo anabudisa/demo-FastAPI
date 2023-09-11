@@ -19,6 +19,7 @@ pytest = "^7.4.1"
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
 ruff = "^0.0.287"
+ipython = "^8.15.0"
 
 [build-system]
 requires = ["poetry-core"]
