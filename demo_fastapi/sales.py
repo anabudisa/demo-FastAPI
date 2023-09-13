@@ -1,51 +1,11 @@
-from datetime import date
+from datetime import datetime
 import re
-from pydantic import BaseModel, PositiveInt, field_validator, model_validator
+from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
+from .model import Order
 from uuid import uuid1
 
-# init API for orders
 app = FastAPI()
-
-
-class Order(BaseModel):
-    id: int
-    datestamp: str
-    buyer: str
-    apples: PositiveInt | None = None
-    oranges: PositiveInt | None = None
-
-    @field_validator("datestamp")
-    @classmethod
-    def check_date_format(cls, ymd: str) -> str:
-        # check if the datetime is in format yyyy/mm/dd and after the date 2000/01/01
-        r = re.compile("\d{4}/\d{2}/\d{2}")
-        assert (
-            len(ymd) == 10
-        ), "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
-        assert r.match(
-            ymd
-        ), "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
-        date_ = date(year=int(ymd[:4]), month=int(ymd[5:7]), day=int(ymd[8:10]))
-        assert date_ >= date(2000, 1, 1), "We only track orders after 1 January 2000"
-        return ymd
-
-    @field_validator("buyer")
-    @classmethod
-    def check_for_numbers(cls, x: str) -> str:
-        # check if the string contains any numbers
-        assert not any(
-            char.isdigit() for char in x
-        ), "Buyer's name cannot contain numbers!"
-        return x
-
-    @model_validator(mode="after")
-    def check(self) -> "Order":
-        if self.apples is None and self.oranges is None:
-            raise ValueError(
-                "No sale has been made! Order at least one apple or orange."
-            )
-        return self
 
 
 @app.post("/orders/")
@@ -84,10 +44,12 @@ def create_order(
             detail="Date in wrong format! It should be yyyy/mm/dd (no spaces).",
         )
 
-    date_ = date(
-        year=int(datestamp[:4]), month=int(datestamp[5:7]), day=int(datestamp[8:10])
-    )  # FIXME: out of range dates?
-    if date_ < date(2000, 1, 1):
+    try:
+        date_ = datetime.strptime(datestamp, "%Y/%m/%d")
+    except ValueError as err:
+        raise HTTPException(status_code=422, detail=str(err))
+
+    if date_ < datetime(2000, 1, 1):
         raise HTTPException(
             status_code=422,
             detail="We only track orders after 1 January 2000. "
