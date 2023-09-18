@@ -78,20 +78,54 @@ def create_order(
     return order
 
 
-# @app.put("/orders/{order_id}")
-# def update_order(
-#     order_id: int,
-#     datestamp: str,
-#     buyer: str,
-#     apples: PositiveInt = None,
-#     oranges: PositiveInt = None,
-# ):
-#     # update order with ID "order_id"
-#     order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
-#     return {"order_id": order_id, "order": order}
+@app.put("/orders/")
+def update_order(
+    order_id: int,
+    datestamp: str = None,
+    buyer: str = None,
+    apples: PositiveInt = None,
+    oranges: PositiveInt = None,
+):
+    # update order with ID = order_id
+    cursor = cnxn.cursor()
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+
+    datestamp = datestamp if datestamp is not None else row.datestamp
+    buyer = buyer if buyer is not None else row.buyer
+    apples = apples if apples is not None else row.apples
+    oranges = oranges if oranges is not None else row.oranges
+
+    try:
+        cursor.execute(
+            "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges = ? WHERE id = ?",
+            datestamp,
+            buyer,
+            apples,
+            oranges,
+            order_id,
+        )
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=500,
+            detail="Error updating database! Recheck your entries.\n" + str(err),
+        )
+
+    # order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
+    return Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
 
 
-# @app.get("/orders/{order_id}")
-# def read_order(order_id: int):
-#     # get data of order with ID "order_id"
-#     return {"item_id": order_id, "order": order_id}
+@app.get("/orders/")
+def read_order(order_id: int):
+    # read the order with ID = order_id from the database and print it in the app
+    cursor = cnxn.cursor()
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+
+    return Order(
+        id=order_id,
+        datestamp=row.datestamp,
+        buyer=row.buyer,
+        apples=row.apples,
+        oranges=row.oranges,
+    )
