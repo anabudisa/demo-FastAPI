@@ -1,11 +1,25 @@
 from datetime import datetime
-import re
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
 from uuid import uuid1
+from .sql_server import connection_string
+import re
+import pyodbc
 
 app = FastAPI()
+
+cnxn = pyodbc.connect(connection_string)
+
+
+@app.on_event("startup")
+async def startup():
+    await cnxn.cursor()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await cnxn.close()
 
 
 @app.post("/orders/")

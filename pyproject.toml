@@ -15,6 +15,7 @@ httpx = "^0.24.1"
 fastapi = "^0.103.1"
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
 pytest = "^7.4.1"
+pyodbc = "^4.0.39"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
