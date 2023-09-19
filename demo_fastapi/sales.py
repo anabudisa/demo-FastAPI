@@ -36,10 +36,7 @@ def create_order(
     oranges: PositiveInt = None,
 ):
     """
-    Create an order on date "date", from buyer "buyer" that is buying "sale";
-    1. Check for errors in the input
-    2. Generate unique id
-    3. Save the order to the database
+    Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
     """
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
@@ -81,21 +78,28 @@ def create_order(
         )
 
     # if everything ok, make an order TODO: is this still necessary?
-    order_id = uuid1().int
+    order_id = 12345  # uuid1().int
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
 
     # save to the database
     cursor = cnxn.cursor()
-    cursor.execute(
-        "INSERT INTO ShoppingList VALUES (?,?,?,?,?)",
-        order_id,
-        datestamp,
-        buyer,
-        apples,
-        oranges,
-    )
+    try:
+        cursor.execute(
+            "INSERT INTO ShoppingList VALUES (?,?,?,?,?)",
+            datestamp,
+            buyer,
+            apples,
+            oranges,
+            order_id,
+        )
+        cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=500,
+            detail="Error updating database! Recheck your entries.\n" + str(err),
+        )
 
     return order
 
@@ -108,7 +112,7 @@ def update_order(
     apples: PositiveInt = None,
     oranges: PositiveInt = None,
 ):
-    # update order with ID = order_id
+    """update order with ID = order_id"""
     cursor = cnxn.cursor()
     cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
     row = cursor.fetchone()
@@ -127,9 +131,10 @@ def update_order(
             oranges,
             order_id,
         )
+        cursor.commit()
     except pyodbc.DatabaseError as err:
         raise HTTPException(
-            status_code=500,
+            status_code=418,
             detail="Error updating database! Recheck your entries.\n" + str(err),
         )
 
@@ -139,9 +144,16 @@ def update_order(
 
 @app.get("/orders/")
 def read_order(order_id: int):
-    # read the order with ID = order_id from the database and print it in the app
+    """Read the order with ID = order_id from the database and print it in the app"""
     cursor = cnxn.cursor()
-    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    try:
+        cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+        # cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=418,
+            detail="Error updating database! Recheck your entries.\n" + str(err),
+        )
     row = cursor.fetchone()
 
     return Order(
