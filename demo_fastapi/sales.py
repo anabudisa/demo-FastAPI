@@ -4,22 +4,28 @@ from fastapi import FastAPI, HTTPException
 from .model import Order
 from uuid import uuid1
 from .sql_server import connection_string
+from contextlib import asynccontextmanager
 import re
 import pyodbc
 
-app = FastAPI()
-
-cnxn = pyodbc.connect(connection_string)
+cnxn = None
 
 
-@app.on_event("startup")
-async def startup():
-    await cnxn.cursor()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # At startup - start connection to the SQL server
+    global cnxn
+    try:
+        cnxn = pyodbc.connect(connection_string)
+    except pyodbc.Error as err:
+        sqlstate = err.args[1]
+        print(sqlstate)
+    yield
+    # At shutdown - close the connection
+    cnxn.close()
 
 
-@app.on_event("shutdown")
-async def shutdown():
-    await cnxn.close()
+app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/orders/")
@@ -29,8 +35,12 @@ def create_order(
     apples: PositiveInt = None,
     oranges: PositiveInt = None,
 ):
-    # create an order on date "date", from buyer "buyer" that is buying "sale";
-    # generate unique id
+    """
+    Create an order on date "date", from buyer "buyer" that is buying "sale";
+    1. Check for errors in the input
+    2. Generate unique id
+    3. Save the order to the database
+    """
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
         raise HTTPException(
@@ -70,11 +80,23 @@ def create_order(
             + "Please enter only valid orders.",
         )
 
-    # if everything ok, make an order
+    # if everything ok, make an order TODO: is this still necessary?
     order_id = uuid1().int
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
+
+    # save to the database
+    cursor = cnxn.cursor()
+    cursor.execute(
+        "INSERT INTO ShoppingList VALUES (?,?,?,?,?)",
+        order_id,
+        datestamp,
+        buyer,
+        apples,
+        oranges,
+    )
+
     return order
 
 
