@@ -2,11 +2,13 @@ from datetime import datetime
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
-from uuid import uuid1
+
+# from uuid import uuid1
 from .sql_server import connection_string
 from contextlib import asynccontextmanager
 import re
 import pyodbc
+import random
 
 cnxn = None
 
@@ -78,7 +80,7 @@ def create_order(
         )
 
     # if everything ok, make an order TODO: is this still necessary?
-    order_id = 12345  # uuid1().int
+    order_id = random.randrange(10**8)  # 12345  # uuid1().int
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
@@ -139,7 +141,9 @@ def update_order(
         )
 
     # order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
-    return Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
+    return Order(
+        id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
+    )
 
 
 @app.get("/orders/")
