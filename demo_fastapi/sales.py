@@ -156,7 +156,30 @@ def read_order(order_id: int):
     except pyodbc.DatabaseError as err:
         raise HTTPException(
             status_code=418,
-            detail="Error updating database! Recheck your entries.\n" + str(err),
+            detail="Error reading database! Recheck your entries.\n" + str(err),
+        )
+    row = cursor.fetchone()
+
+    return Order(
+        id=order_id,
+        datestamp=row.datestamp,
+        buyer=row.buyer,
+        apples=row.apples,
+        oranges=row.oranges,
+    )
+
+
+@app.delete("/orders/")
+def delete_order(order_id: int):
+    """Delete the order with ID = order_id from the database and print it in the app"""
+    cursor = cnxn.cursor()
+    try:
+        cursor.execute("DELETE FROM ShoppingList WHERE id = ?", order_id)
+        # cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=418,
+            detail="Error reading database! Recheck your entries.\n" + str(err),
         )
     row = cursor.fetchone()
 
