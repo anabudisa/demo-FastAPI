@@ -1,17 +1,11 @@
-from demo_fastapi.sql_server import server, database, username, password
-import pyodbc
+def test_connection(db_connection):
+    try:
+        cursor = db_connection.cursor()
 
-connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};DATABASE={database};UID={username};PWD={password}"
+        for row in cursor.execute("SELECT * from ShoppingList;"):
+            print(row)
 
-try:
-    cnxn = pyodbc.connect(connection_string)
+        db_connection.close()
 
-    cursor = cnxn.cursor()
-
-    for row in cursor.execute("SELECT * from ShoppingList;"):
-        print(row)
-
-    cnxn.close()
-
-except Exception as e:
-    print(f"Error: {str(e)}")
+    except Exception as e:
+        print(f"Error: {str(e)}")

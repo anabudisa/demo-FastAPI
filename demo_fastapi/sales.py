@@ -79,7 +79,7 @@ def create_order(
             + "Please enter only valid orders.",
         )
 
-    # if everything ok, make an order TODO: is this still necessary?
+    # if everything ok, make an order
     order_id = random.randrange(10**8)  # 12345  # uuid1().int
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
