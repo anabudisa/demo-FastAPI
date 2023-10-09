@@ -10,7 +10,6 @@ api: poetry	## third run the app
 poetry: container	## second activate poetry shell
 	poetry install; \
 	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
-	pytest tests/test_app_lifespan.py
 
 container: ## Run the docker container
 	if docker start sql1; then \
