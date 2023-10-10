@@ -1,5 +1,5 @@
 from demo_fastapi.sql_server import server, database, username, password
-import pyodbc
+import pyodbc  # type: ignore
 import pytest
 
 

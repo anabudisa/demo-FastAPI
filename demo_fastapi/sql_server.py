@@ -1,4 +1,4 @@
-import pyodbc
+import pyodbc  # type: ignore
 
 server = "172.17.0.2,1433"
 database = "ShoppingDB"

@@ -7,7 +7,7 @@ from .model import Order
 from .sql_server import connection_string
 from contextlib import asynccontextmanager
 import re
-import pyodbc
+import pyodbc  # type: ignore
 import random
 
 cnxn = None
@@ -34,8 +34,8 @@ app = FastAPI(lifespan=lifespan)
 def create_order(
     datestamp: str,
     buyer: str,
-    apples: PositiveInt = None,
-    oranges: PositiveInt = None,
+    apples: PositiveInt | None = None,
+    oranges: PositiveInt | None = None,
 ):
     """
     Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
@@ -109,10 +109,10 @@ def create_order(
 @app.put("/orders/")
 def update_order(
     order_id: int,
-    datestamp: str = None,
-    buyer: str = None,
-    apples: PositiveInt = None,
-    oranges: PositiveInt = None,
+    datestamp: str | None = None,
+    buyer: str | None = None,
+    apples: PositiveInt | None = None,
+    oranges: PositiveInt | None = None,
 ):
     """update order with ID = order_id"""
     cursor = cnxn.cursor()
