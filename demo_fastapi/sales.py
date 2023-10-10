@@ -126,7 +126,8 @@ def update_order(
 
     try:
         cursor.execute(
-            "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges = ? WHERE id = ?",
+            "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges = "
+            "? WHERE id = ?",
             datestamp,
             buyer,
             apples,

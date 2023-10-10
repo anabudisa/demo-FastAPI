@@ -5,7 +5,8 @@ database = "ShoppingDB"
 username = "sa"
 password = "Kend@llStr0ng!"
 
-connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};DATABASE={database};UID={username};PWD={password}"
+connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};\
+DATABASE={database};UID={username};PWD={password}"
 
 try:
     cnxn = pyodbc.connect(connection_string)
