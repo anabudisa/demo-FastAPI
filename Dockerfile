@@ -1,8 +1,10 @@
 # copyright https://github.com/max-pfeiffer/python-poetry/blob/main/build/Dockerfile
 # using Python 3.10 as base image
-ARG OFFICIAL_PYTHON_IMAGE=3.10-slim-bookworm
+ARG OFFICIAL_PYTHON_IMAGE=python:3.10-slim
 FROM ${OFFICIAL_PYTHON_IMAGE} as build-stage
 ARG POETRY_VERSION=1.6.1
+
+SHELL ["/bin/bash", "-c"]
 
 # References:
 # https://pip.pypa.io/en/stable/topics/caching/#avoiding-caching
@@ -34,14 +36,12 @@ RUN ${POETRY_HOME}/bin/pip install -U pip setuptools
 RUN ${POETRY_HOME}/bin/pip install "poetry==${POETRY_VERSION}"
 
 # setup a poetry venv
-ENV PATH="$PATH:/root/.local/bin" \
-    POETRY_CACHE_DIR="/.cache" \
-    VIRTUAL_ENVIRONMENT_PATH="/.venv" \
-    APPLICATION_SERVER_PORT=$APPLICATION_SERVER_PORT \
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
+ENV PATH="${PATH}:/opt/poetry/bin" \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 
 # install requirements and poetry venv
-COPY poetry.lock pyproject.toml ./
+COPY poetry.lock pyproject.toml $HOME/
+# RUN poetry install --no-interaction
 RUN poetry install --no-interaction
 
 # Provide a known path for the virtual environment by creating a symlink
@@ -83,3 +83,7 @@ EXPOSE ${APPLICATION_SERVER_PORT}
 
 # Run the uvicorn application server.
 CMD exec uvicorn --host 0.0.0.0 --port $APPLICATION_SERVER_PORT --reload sales:app
+
+#     POETRY_CACHE_DIR="/.cache" \
+#    VIRTUAL_ENVIRONMENT_PATH="/.venv" \
+#
