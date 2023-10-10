@@ -9,7 +9,8 @@ def db_connection():
     Establishes odbc connection for the whole session
     :return: pyodbc connection class
     """
-    connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};DATABASE={database};UID={username};PWD={password}"
+    connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};\
+    DATABASE={database};UID={username};PWD={password}"
 
     cnxn = pyodbc.connect(connection_string)
     cnxn.autocommit = True
@@ -20,7 +21,8 @@ def db_connection():
 @pytest.fixture(autouse=True)
 def _mock_db_connection(mocker, db_connection):
     """
-    This will alter application database connection settings, for all the test in the tests module
+    This will alter application database connection settings,
+    for all the test in the tests module
     :param mocker: pytest-mock plugin fixture
     :param db_connection: connection class
     :return: True if successful monkey-patching
