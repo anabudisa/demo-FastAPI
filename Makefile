@@ -3,13 +3,13 @@ SHELL=/bin/bash
 .SILENT:
 
 api: poetry	## third run the app
+	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
 	uvicorn demo_fastapi.sales:app --reload --host 0.0.0.0 &
-	sleep 10
+	sleep 3
 	xdg-open http://0.0.0.0:8000/docs
 
 poetry: container	## second activate poetry shell
-	poetry install; \
-	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
+	poetry install
 
 container: ## Run the docker container
 	if docker start sql1; then \
@@ -23,6 +23,7 @@ container: ## Run the docker container
 	fi
 
 test: poetry ## Run tests
+	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
 	pytest tests
 
 clean: ## Deactivate virtual env and docker container
