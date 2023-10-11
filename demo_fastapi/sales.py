@@ -2,29 +2,23 @@ from datetime import datetime
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
+from .connection_manager import get_db
 
 # from uuid import uuid1
-from .sql_server import connection_string
 from contextlib import asynccontextmanager
 import re
 import pyodbc
 import random
 
-cnxn = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # At startup - start connection to the SQL server
-    global cnxn
-    try:
-        cnxn = pyodbc.connect(connection_string)
-    except pyodbc.Error as err:
-        sqlstate = err.args[1]
-        print(sqlstate)
+    connection_manager = get_db()
+    app.state.connection_manager = connection_manager
     yield
     # At shutdown - close the connection
-    cnxn.close()
+    connection_manager.disconnect()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -40,6 +34,7 @@ def create_order(
     """
     Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
     """
+    cnxn = app.state.connection_manager.connection
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
         raise HTTPException(
@@ -115,6 +110,7 @@ def update_order(
     oranges: PositiveInt = None,
 ):
     """update order with ID = order_id"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
     row = cursor.fetchone()
@@ -150,6 +146,7 @@ def update_order(
 @app.get("/orders/")
 def read_order(order_id: int):
     """Read the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     try:
         cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
@@ -173,6 +170,7 @@ def read_order(order_id: int):
 @app.delete("/orders/", include_in_schema=False)
 def delete_order(order_id: int):
     """Delete the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     try:
         cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)

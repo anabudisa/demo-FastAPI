@@ -1,4 +1,4 @@
-from demo_fastapi.sql_server import server, database, username, password
+from demo_fastapi.sql_server import server, username, password
 import pyodbc
 import pytest
 
@@ -9,6 +9,7 @@ def db_connection():
     Establishes odbc connection for the whole session
     :return: pyodbc connection class
     """
+    database = "TestDB"
     connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};\
     DATABASE={database};UID={username};PWD={password}"
 
@@ -27,5 +28,7 @@ def _mock_db_connection(mocker, db_connection):
     :param db_connection: connection class
     :return: True if successful monkey-patching
     """
-    mocker.patch("demo_fastapi.sales.cnxn", db_connection)
+    mocker.patch(
+        "demo_fastapi.sales.app.state.connection_manager.connection", db_connection
+    )
     return True
