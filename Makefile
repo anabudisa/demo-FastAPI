@@ -6,7 +6,7 @@ api: poetry	## third run the app
 	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
 	uvicorn demo_fastapi.sales:app --reload --host 0.0.0.0 &
 	sleep 3
-	xdg-open http://0.0.0.0:8000/docs
+	xdg-open http://0.0.0.0:8000/docs &
 
 poetry: container	## second activate poetry shell
 	poetry install
@@ -27,7 +27,7 @@ test: poetry ## Run tests
 	pytest tests
 
 clean: ## Deactivate virtual env and docker container
-	-deactivate
-	docker stop sql1
+	uvicorn_pid=`ps aux | grep uvicorn | head -n 1 | awk '{print $$2}'`
+	kill $$uvicorn_pid
 help:
 	echo -e "Run \033[0;31mmake api\033[0m to run the application or \033[0;31mmake test\033[0m to run tests"
