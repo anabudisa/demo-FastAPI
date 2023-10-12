@@ -48,16 +48,6 @@ def test_create_order_oranges():
             "apples": None,
             "oranges": 456,
         }
-        # second, delete it cos it's only a test
-        response = client.delete("/orders/", params={"order_id": id})
-        assert response.status_code == 200
-        assert response.json() == {
-            "id": id,
-            "datestamp": "2011/12/02",
-            "buyer": "ana",
-            "apples": None,
-            "oranges": 456,
-        }
 
 
 def test_create_order_apples_oranges():
@@ -75,16 +65,6 @@ def test_create_order_apples_oranges():
         )
         assert response.status_code == 200
         id = response.json()["id"]  # unique id
-        assert response.json() == {
-            "id": id,
-            "datestamp": "2011/12/02",
-            "buyer": "ana",
-            "apples": 86,
-            "oranges": 9812,
-        }
-        # second, delete it cos it's only a test
-        response = client.delete("/orders/", params={"order_id": id})
-        assert response.status_code == 200
         assert response.json() == {
             "id": id,
             "datestamp": "2011/12/02",
@@ -204,7 +184,3 @@ def test_update_order():
             "apples": 12,
             "oranges": 34,
         }
-
-
-# if __name__ == "__main__":
-#     test_create_order_apples_oranges()

@@ -1,30 +1,27 @@
+import os
 from datetime import datetime
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
-
-# from uuid import uuid1
-from .sql_server import connection_string
+from .connection_manager import get_db, test_get_db
 from contextlib import asynccontextmanager
 import re
 import pyodbc  # type: ignore
 import random
-
-cnxn = None
+import sys
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # At startup - start connection to the SQL server
-    global cnxn
-    try:
-        cnxn = pyodbc.connect(connection_string)
-    except pyodbc.Error as err:
-        sqlstate = err.args[1]
-        print(sqlstate)
+    if "pytest" in sys.argv[0] or "PYTEST_CURRENT_TEST" in os.environ:
+        connection_manager = test_get_db()
+    else:
+        connection_manager = get_db()
+    app.state.connection_manager = connection_manager
     yield
     # At shutdown - close the connection
-    cnxn.close()
+    connection_manager.disconnect()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -40,6 +37,7 @@ def create_order(
     """
     Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
     """
+    cnxn = app.state.connection_manager.connection
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
         raise HTTPException(
@@ -54,7 +52,7 @@ def create_order(
         )
 
     # check date format and if it's after 1 January 2000
-    r = re.compile("\d{4}/\d{2}/\d{2}")
+    r = re.compile(r"\d{4}/\d{2}/\d{2}")
     if len(datestamp) != 10:
         raise HTTPException(
             status_code=422,
@@ -115,6 +113,7 @@ def update_order(
     oranges: PositiveInt | None = None,
 ):
     """update order with ID = order_id"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
     row = cursor.fetchone()
@@ -150,6 +149,7 @@ def update_order(
 @app.get("/orders/")
 def read_order(order_id: int):
     """Read the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     try:
         cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
@@ -173,6 +173,7 @@ def read_order(order_id: int):
 @app.delete("/orders/", include_in_schema=False)
 def delete_order(order_id: int):
     """Delete the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
     cursor = cnxn.cursor()
     try:
         cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)

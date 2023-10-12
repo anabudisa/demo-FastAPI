@@ -1,5 +1,5 @@
-from demo_fastapi.sql_server import server, database, username, password
-import pyodbc  # type: ignore
+from demo_fastapi.sql_server import server, username, password
+from demo_fastapi.connection_manager import ConnectionManager
 import pytest
 
 
@@ -9,23 +9,12 @@ def db_connection():
     Establishes odbc connection for the whole session
     :return: pyodbc connection class
     """
+    database = "TestDB"
     connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};\
     DATABASE={database};UID={username};PWD={password}"
 
-    cnxn = pyodbc.connect(connection_string)
-    cnxn.autocommit = True
+    connection_manager = ConnectionManager(connection_string)
+    connection_manager.connect()
+    connection_manager.connection.autocommit = True
 
-    return cnxn
-
-
-@pytest.fixture(autouse=True)
-def _mock_db_connection(mocker, db_connection):
-    """
-    This will alter application database connection settings,
-    for all the test in the tests module
-    :param mocker: pytest-mock plugin fixture
-    :param db_connection: connection class
-    :return: True if successful monkey-patching
-    """
-    mocker.patch("demo_fastapi.sales.cnxn", db_connection)
-    return True
+    return connection_manager
