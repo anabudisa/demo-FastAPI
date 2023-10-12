@@ -1,20 +1,23 @@
+import os
 from datetime import datetime
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
-from .connection_manager import get_db
-
-# from uuid import uuid1
+from .connection_manager import get_db, test_get_db
 from contextlib import asynccontextmanager
 import re
 import pyodbc
 import random
+import sys
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # At startup - start connection to the SQL server
-    connection_manager = get_db()
+    if "pytest" in sys.argv[0] or "PYTEST_CURRENT_TEST" in os.environ:
+        connection_manager = test_get_db()
+    else:
+        connection_manager = get_db()
     app.state.connection_manager = connection_manager
     yield
     # At shutdown - close the connection
@@ -49,7 +52,7 @@ def create_order(
         )
 
     # check date format and if it's after 1 January 2000
-    r = re.compile("\d{4}/\d{2}/\d{2}")
+    r = re.compile(r"\d{4}/\d{2}/\d{2}")
     if len(datestamp) != 10:
         raise HTTPException(
             status_code=422,
