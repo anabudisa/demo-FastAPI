@@ -1,5 +1,5 @@
-from .sql_server import connection_string, test_connection_string
-import pyodbc
+from .sql_server import connection_string
+import pyodbc  # type: ignore
 
 
 class ConnectionManager:
@@ -20,14 +20,6 @@ class ConnectionManager:
 
 def get_db():
     connection_manager = ConnectionManager(connection_string)
-    connection_manager.connect()
-    return connection_manager
-
-
-def test_get_db():
-    RED, RESET = "\033[31m", "\033[0m"
-    print(f"{RED}DATABASE WITHIN PYTEST: \n" + test_connection_string + f"{RESET}")
-    connection_manager = ConnectionManager(test_connection_string)
     connection_manager.connect()
     return connection_manager
 
