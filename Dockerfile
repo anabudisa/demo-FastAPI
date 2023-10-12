@@ -41,8 +41,9 @@ ENV PATH="${PATH}:/opt/poetry/bin" \
 
 # install requirements and poetry venv
 COPY poetry.lock pyproject.toml $HOME/
+# COPY /demo_fastapi /demo_fastapi
 # RUN poetry install --no-interaction
-RUN poetry install --no-interaction
+RUN poetry install --no-interaction --no-root
 
 # Provide a known path for the virtual environment by creating a symlink
 RUN ln -s $(poetry env info --path) /var/my-venv
@@ -55,17 +56,26 @@ RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
 
 FROM ${OFFICIAL_PYTHON_IMAGE} as test-stage
 
-ENV PATH="/opt/poetry/bin:$PATH"
+SHELL ["/bin/bash", "-c"]
+
+ENV PATH="/opt/poetry/bin:$PATH" \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 
 # make sure poetry is available that is built in build-stage
 COPY --from=build-stage /opt/poetry /opt/poetry/
+COPY --from=build-stage /var /var
+
+# activate poetry venv
+RUN poetry install --no-interaction --no-root
+RUN source $(poetry env info --path)/bin/activate
 
 # copy the app files??
-COPY /demo_fastapi /demo
+# COPY --from=build-stage /demo_fastapi /demo_fastapi
+COPY /demo_fastapi /demo_fastapi
 COPY /tests /tests
+
 # work directory where the app files are
 WORKDIR /tests
-
 # run tests
 RUN pytest .
 
@@ -73,9 +83,10 @@ FROM ${OFFICIAL_PYTHON_IMAGE} as production-stage
 ARG APPLICATION_SERVER_PORT=8000
 
 COPY --from=test-stage /opt/poetry /opt/poetry
-COPY --from=test-stage /demo /demo
+COPY --from=test-stage /demo_fastapi /demo_fastapi
+COPY /README.md /README.md
 
-WORKDIR /demo
+WORKDIR /demo_fastapi
 
 # Document the exposed port
 # https://docs.docker.com/engine/reference/builder/#expose
