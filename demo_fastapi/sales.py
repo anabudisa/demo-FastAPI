@@ -1,23 +1,18 @@
-import os
 from datetime import datetime
 from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
-from .connection_manager import get_db, test_get_db
+from .connection_manager import get_db
 from contextlib import asynccontextmanager
 import re
 import pyodbc
 import random
-import sys
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # At startup - start connection to the SQL server
-    if "pytest" in sys.argv[0] or "PYTEST_CURRENT_TEST" in os.environ:
-        connection_manager = test_get_db()
-    else:
-        connection_manager = get_db()
+    connection_manager = get_db()
     app.state.connection_manager = connection_manager
     yield
     # At shutdown - close the connection
