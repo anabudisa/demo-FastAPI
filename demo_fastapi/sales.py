@@ -113,10 +113,10 @@ def update_order(
     cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
     row = cursor.fetchone()
 
-    datestamp = datestamp if datestamp is not None else row.datestamp
-    buyer = buyer if buyer is not None else row.buyer
-    apples = apples if apples is not None else row.apples
-    oranges = oranges if oranges is not None else row.oranges
+    datestamp = datestamp or row.datestamp
+    buyer = buyer or row.buyer
+    apples = apples or row.apples
+    oranges = oranges or row.oranges
 
     try:
         cursor.execute(

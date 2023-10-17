@@ -47,11 +47,9 @@ RUN ${POETRY_HOME}/bin/pip install "poetry==${POETRY_VERSION}"
 ENV PATH="${PATH}:/opt/poetry/bin" \
     POETRY_VIRTUALENVS_IN_PROJECT=true
 
-# install requirements and poetry venv (without requiring root directory of the project)
+# install requirements and poetry venv (w/o requiring root directory of the project)
 COPY poetry.lock pyproject.toml $HOME/
-# COPY /demo_fastapi /demo_fastapi
-# RUN poetry install --no-interaction
-RUN poetry install --no-interaction --no-root
+RUN poetry install --no-interaction --no-root --with dev
 
 # Provide a known path for the virtual environment by creating a symlink
 RUN ln -s $(poetry env info --path) /var/my-venv
@@ -62,63 +60,29 @@ ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 # Start virtual env when bash starts
 RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
 
-FROM ${OFFICIAL_PYTHON_IMAGE} as test-stage
+# environment important variables to run the database (from other docker container)
+ENV DATABASE_SERVER="172.17.0.3" \
+    DATABASE_PORT="1433" \
+    DATABASE_USERNAME="SA" \
+    DATABASE_PWD="Kend@llStr0ng!"
+
+FROM build-stage as test-stage
 
 # i like bash
 SHELL ["/bin/bash", "-c"]
 
-# for poetry command to work
-ENV PATH="/opt/poetry/bin:$PATH" \
-    POETRY_VIRTUALENVS_IN_PROJECT=true
-
-# Add the dependencies for the odbc lib (for some reason they need to be reinstalled??)
-ENV ACCEPT_EULA=Y
-RUN apt-get update && apt-get install -y unixodbc-dev
-# Copy dependencies from the build image
-# to avoid errors like ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'SQL Server' : file not found (0) (SQLDriverConnect)")
-COPY --from=build-stage  /usr/lib  /usr/lib
-COPY --from=build-stage /etc/odbcinst.ini /etc/odbcinst.ini
-# to avoid errors like ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib '/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.10.so.5.1' : file not found (0) (SQLDriverConnect)")
-COPY --from=build-stage /opt/microsoft/ /opt/microsoft/
-
-# make sure poetry is available which is built in build-stage
-COPY --from=build-stage /opt/poetry /opt/poetry/
-COPY --from=build-stage /var /var
-
-# activate poetry venv
 # install requirements (only for test stage! ergo "--with test") and poetry venv
-COPY --from=build-stage ./poetry.lock ./pyproject.toml $HOME/
 RUN poetry install --no-interaction --no-root --with test
-RUN source $(poetry env info --path)/bin/activate
 
-# copy the app files??
+# copy the app files
 COPY /demo_fastapi /demo_fastapi
 COPY /tests /tests
 
 # set work directory where the app test files are
 WORKDIR /tests
-# run tests
-RUN poetry run pytest .
 
-FROM ${OFFICIAL_PYTHON_IMAGE} as production-stage
-ARG APPLICATION_SERVER_PORT=8000
-
-# i like bash
-SHELL ["/bin/bash", "-c"]
-
-# for poetry command to work
-ENV PATH="/opt/poetry/bin:$PATH" \
-    POETRY_VIRTUALENVS_IN_PROJECT=true
-
-# copy poetry files (for poetry command to work) and app files
-COPY --from=build-stage /opt/poetry /opt/poetry
-COPY /demo_fastapi /demo_fastapi
-COPY /README.md /README.md
-
-# install project with poetry (only production stage requirements! ergo "--with") TODO
-COPY --from=build-stage ./poetry.lock ./pyproject.toml $HOME/
-RUN poetry install --no-interaction --no-root
-RUN source $(poetry env info --path)/bin/activate
+# Provide a known path for the virtual environment by creating a symlink
+RUN ln -s $(poetry env info --path) /var/my-venv
 
 # Hide virtual env prompt
 ENV VIRTUAL_ENV_DISABLE_PROMPT=1
@@ -126,13 +90,38 @@ ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 # Start virtual env when bash starts
 RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
 
-# set work dir where app files are FIXME
+# database info necessary to run tests
+ENV DATABASE_NAME="TestDB"
+
+FROM build-stage as production-stage
+ARG APPLICATION_SERVER_PORT=8000
+
+# i like bash
+SHELL ["/bin/bash", "-c"]
+
+# copy app files
+COPY /demo_fastapi /demo_fastapi
+COPY /README.md /README.md
+
+# install project with poetry (only production stage requirements! ergo "--with") TODO
+RUN poetry install --no-interaction
+
+# Hide virtual env prompt
+ENV VIRTUAL_ENV_DISABLE_PROMPT=1
+
+# Start virtual env when bash starts
+RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
+
+# set work dir where app files are
 WORKDIR /demo_fastapi
 
 # Document the exposed port
 # https://docs.docker.com/engine/reference/builder/#expose
 EXPOSE ${APPLICATION_SERVER_PORT}
 
+# database info necessary to run tests
+ENV DATABASE_NAME="ShoppingDB"
+
 # Run the uvicorn application server.
-CMD exec uvicorn --host 0.0.0.0 --port $APPLICATION_SERVER_PORT --reload sales:app
+# CMD exec uvicorn --host 0.0.0.0 --port $APPLICATION_SERVER_PORT --reload sales:app
 
