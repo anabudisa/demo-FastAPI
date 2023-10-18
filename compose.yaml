@@ -1,19 +1,72 @@
 services:
   api:
+    container_name: myapi
     build:
       context: .
       dockerfile: Dockerfile
       target: production-stage
+    environment:
+      DATABASE_SERVER: database
+      DATABASE_PORT: "1433"
+      DATABASE_USERNAME: "sa"
+      DATABASE_PWD: "Kend@llStr0ng!"
     ports:
       - "8000:8000"
+    volumes:
+      - ".:/demo_fastapi"
+    tty: true  # same as -t
     depends_on:
-      - database
-    tty: true
+      database:
+        condition: service_healthy
+    command: poetry run uvicorn --host 0.0.0.0 --port 8000 --reload demo_fastapi.sales:app
+
+  api-test:
+    container_name: myapi-test
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test-stage
+    environment:
+      DATABASE_SERVER: database-test
+      DATABASE_PORT: "1433"
+      DATABASE_USERNAME: "sa"
+      DATABASE_PWD: Kend@llStr0ng!
+    ports:
+      - "8000:8000"
+    tty: true  # same as -t
+    depends_on:
+      database-test:
+        condition: service_healthy
+    command: poetry run pytest
 
   database:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      MSSQL_SA_PASSWORD: "SomePassword"
-      ACCEPT_EULA: Y
+    container_name: database
+    build:
+      context: .
+      dockerfile: Dockerfile.database
     ports:
-      - "1433:1433"
+      - 1433:1433
+    environment:
+      MSSQL_SA_PASSWORD: "Kend@llStr0ng!"
+      ACCEPT_EULA: Y
+      DATABASE_NAME: ShoppingDB
+    healthcheck:
+        test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-Usa", "-PKend@llStr0ng!", "-q", "select 1"]
+        interval: 10s
+        retries: 5
+
+  database-test:
+    container_name: database-test
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+    ports:
+      - 1433:1433
+    environment:
+      MSSQL_SA_PASSWORD: "Kend@llStr0ng!"
+      ACCEPT_EULA: Y
+      DATABASE_NAME: TestDB
+    healthcheck:
+      test: [ "CMD", "/opt/mssql-tools/bin/sqlcmd", "-Usa", "-PKend@llStr0ng!", "-q", "select 1" ]
+      interval: 10s
+      retries: 5

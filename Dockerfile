@@ -61,10 +61,10 @@ ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
 
 # environment important variables to run the database (from other docker container)
-ENV DATABASE_SERVER="172.17.0.3" \
-    DATABASE_PORT="1433" \
-    DATABASE_USERNAME="SA" \
-    DATABASE_PWD="Kend@llStr0ng!"
+# ENV DATABASE_SERVER="172.17.0.3" \
+#     DATABASE_PORT="1433" \
+#     DATABASE_USERNAME="SA" \
+#     DATABASE_PWD="Kend@llStr0ng!"
 
 FROM build-stage as test-stage
 
@@ -106,11 +106,15 @@ COPY /README.md /README.md
 # install project with poetry (only production stage requirements! ergo "--with") TODO
 RUN poetry install --no-interaction
 
+# Provide a known path for the virtual environment by creating a symlink
+RUN ln -s $(poetry env info --path) /var/my-venv
+
 # Hide virtual env prompt
 ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 
 # Start virtual env when bash starts
-RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
+ENV PATH="${PATH}:/var/my-venv/bin"
+# RUN echo "source /var/my-venv/bin/activate" >> ~/.bashrc
 
 # set work dir where app files are
 WORKDIR /demo_fastapi
