@@ -1,18 +1,15 @@
-from fastapi.testclient import TestClient
-from demo_fastapi.sales import app
+def test_create_order_apples(client_test):
+    """This should create a new order that orders only apples (oranges = NULL)"""
 
-client = TestClient(app)
-
-
-def test_create_order_apples():
-    response = client.post(
+    # first, create a new order
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011/12/02", "buyer": "ana", "apples": 12},
     )
     assert response.status_code == 200
-    id = response.json()["id"]  # unique id
+    id_ = response.json()["id"]  # unique id
     assert response.json() == {
-        "id": id,
+        "id": id_,
         "datestamp": "2011/12/02",
         "buyer": "ana",
         "apples": 12,
@@ -20,15 +17,17 @@ def test_create_order_apples():
     }
 
 
-def test_create_order_oranges():
-    response = client.post(
+def test_create_order_oranges(client_test):
+    """This should create a new order that orders only oranges (apples = NULL)"""
+    # first, create a new order
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011/12/02", "buyer": "ana", "oranges": 456},
     )
     assert response.status_code == 200
-    id = response.json()["id"]  # unique id
+    id_ = response.json()["id"]  # unique id
     assert response.json() == {
-        "id": id,
+        "id": id_,
         "datestamp": "2011/12/02",
         "buyer": "ana",
         "apples": None,
@@ -36,8 +35,10 @@ def test_create_order_oranges():
     }
 
 
-def test_create_order_apples_oranges():
-    response = client.post(
+def test_create_order_apples_oranges(client_test):
+    """This should create a new order that orders apples and oranges"""
+    # first, create a new order
+    response = client_test.post(
         "/orders/",
         params={
             "datestamp": "2011/12/02",
@@ -47,9 +48,9 @@ def test_create_order_apples_oranges():
         },
     )
     assert response.status_code == 200
-    id = response.json()["id"]  # unique id
+    id_ = response.json()["id"]  # unique id
     assert response.json() == {
-        "id": id,
+        "id": id_,
         "datestamp": "2011/12/02",
         "buyer": "ana",
         "apples": 86,
@@ -57,8 +58,9 @@ def test_create_order_apples_oranges():
     }
 
 
-def test_create_order_bad_date_format():
-    response = client.post(
+def test_create_order_bad_date_format(client_test):
+    """This should not create an order because the order date in a wrong format"""
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011-12-02", "buyer": "ana", "apples": 12},
     )
@@ -68,8 +70,9 @@ def test_create_order_bad_date_format():
     }
 
 
-def test_create_order_bad_date_length():
-    response = client.post(
+def test_create_order_bad_date_length(client_test):
+    """This should not create an order because the order date is not a real date"""
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011/123/02", "buyer": "ana", "apples": 12},
     )
@@ -80,8 +83,9 @@ def test_create_order_bad_date_length():
     }
 
 
-def test_create_order_too_old():
-    response = client.post(
+def test_create_order_too_old(client_test):
+    """This should not create an order because the order date is before 2000/01/01"""
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "1987/12/02", "buyer": "ana", "apples": 12},
     )
@@ -92,8 +96,9 @@ def test_create_order_too_old():
     }
 
 
-def test_create_order_bad_buyer():
-    response = client.post(
+def test_create_order_bad_buyer(client_test):
+    """This should not create an order because the buyer's name contains numbers"""
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011/12/02", "buyer": "ana1", "apples": 12},
     )
@@ -101,8 +106,9 @@ def test_create_order_bad_buyer():
     assert response.json() == {"detail": "Buyer's name cannot contain numbers!"}
 
 
-def test_create_order_bad_sale():
-    response = client.post(
+def test_create_order_bad_sale(client_test):
+    """This should not create an order because no apples nor oranges were ordered"""
+    response = client_test.post(
         "/orders/",
         params={"datestamp": "2011/12/02", "buyer": "ana"},
     )
@@ -112,5 +118,108 @@ def test_create_order_bad_sale():
     }
 
 
-# if __name__ == "__main__":
-#     test_create_order_apples_oranges()
+def test_read_order(client_test):
+    """This should read an order with (unique) order id that is in database already"""
+    response = client_test.get("/orders/", params={"order_id": 12345})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 12345,
+        "datestamp": "2022/02/02",
+        "buyer": "johanna",
+        "apples": 12,
+        "oranges": 34,
+    }
+
+
+def test_update_order(client_test):
+    """This should update an order by changing the buyer name"""
+    # first get the current value
+    response = client_test.get("/orders/", params={"order_id": 12345})
+    assert response.status_code == 200
+    buyer = response.json()["buyer"]
+
+    # second try to change the buyer name
+    response = client_test.put(
+        "/orders/", params={"order_id": 12345, "buyer": "ingeborg"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 12345,
+        "datestamp": "2022/02/02",
+        "buyer": "ingeborg",
+        "apples": 12,
+        "oranges": 34,
+    }
+
+    # third return to original buyer
+    response = client_test.put("/orders/", params={"order_id": 12345, "buyer": buyer})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 12345,
+        "datestamp": "2022/02/02",
+        "buyer": buyer,
+        "apples": 12,
+        "oranges": 34,
+    }
+
+
+def test_calculate_cost_of_order(client_test):
+    """
+    This should return that a request for cost calculation is received,
+    while the task is executed in the background
+    """
+    response = client_test.post("/orders/cost/", params={"order_id": 12345})
+    assert response.status_code == 200
+    assert response.json() == {"id": 12345, "status": "Request received"}
+
+
+def test_bad_id_calculate_cost_of_order(client_test):
+    """
+    This should return that a request for cost calculation can't be executed because
+    the order with this order_id does not exist
+    """
+    response = client_test.post("/orders/cost/", params={"order_id": 13579})
+    assert response.status_code == 418
+    assert response.json() == {
+        "detail": "Error reading order with id = 13579! Order does not exist."
+    }
+
+
+def test_read_cost_of_order(client_test):
+    """
+    This should return the cost of the order with specified order id, and
+    that the calculated was executed successfully or failed
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 12345})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 12345,
+        "status": "Calculation successful",
+        "cost": 80.0,
+    }
+
+
+def test_bad_id_read_cost_of_order(client_test):
+    """
+    This should return that the request for cost of the order with specified order id
+    can't be found because the order does not exist in the ShoppingList table
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 13579})
+    assert response.status_code == 418
+    assert response.json() == {
+        "detail": "Error reading order with id = 13579! Order does not exist."
+    }
+
+
+def test_bad_calc_read_cost_of_order(client_test):
+    """
+    This should return that the request for cost of the order with specified order id
+    was not successfully computed
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 75573081})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 75573081,
+        "status": "Calculation failed",
+        "cost": None,
+    }

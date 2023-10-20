@@ -1,22 +1,39 @@
 from datetime import datetime
-import re
 from pydantic import PositiveInt
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from .model import Order
-from uuid import uuid1
+from .connection_manager import get_db
+from .utils import calculate_cost
+from contextlib import asynccontextmanager
+import re
+import pyodbc  # type: ignore
+import random
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # At startup - start connection to the SQL server
+    connection_manager = get_db()
+    app.state.connection_manager = connection_manager
+    yield
+    # At shutdown - close the connection
+    connection_manager.disconnect()
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/orders/")
 def create_order(
     datestamp: str,
     buyer: str,
-    apples: PositiveInt = None,
-    oranges: PositiveInt = None,
+    apples: PositiveInt | None = None,
+    oranges: PositiveInt | None = None,
 ):
-    # create an order on date "date", from buyer "buyer" that is buying "sale";
-    # generate unique id
+    """
+    Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
+    """
+    cnxn = app.state.connection_manager.connection
     # check if any apples or oranges are ordered
     if apples is None and oranges is None:
         raise HTTPException(
@@ -31,7 +48,7 @@ def create_order(
         )
 
     # check date format and if it's after 1 January 2000
-    r = re.compile("\d{4}/\d{2}/\d{2}")
+    r = re.compile(r"\d{4}/\d{2}/\d{2}")
     if len(datestamp) != 10:
         raise HTTPException(
             status_code=422,
@@ -57,27 +74,171 @@ def create_order(
         )
 
     # if everything ok, make an order
-    order_id = uuid1().int
+    order_id = random.randrange(10**8)  # 12345  # uuid1().int
     order = Order(
         id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
+
+    # save to the database
+    cursor = cnxn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO ShoppingList VALUES (?,?,?,?,?)",
+            datestamp,
+            buyer,
+            apples,
+            oranges,
+            order_id,
+        )
+        cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=500,
+            detail="Error updating database! Recheck your entries.\n" + str(err),
+        )
+
     return order
 
 
-# @app.put("/orders/{order_id}")
-# def update_order(
-#     order_id: int,
-#     datestamp: str,
-#     buyer: str,
-#     apples: PositiveInt = None,
-#     oranges: PositiveInt = None,
-# ):
-#     # update order with ID "order_id"
-#     order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
-#     return {"order_id": order_id, "order": order}
+@app.put("/orders/")
+def update_order(
+    order_id: int,
+    datestamp: str | None = None,
+    buyer: str | None = None,
+    apples: PositiveInt | None = None,
+    oranges: PositiveInt | None = None,
+):
+    """update order with ID = order_id"""
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+
+    datestamp = datestamp or row.datestamp
+    buyer = buyer or row.buyer
+    apples = apples or row.apples
+    oranges = oranges or row.oranges
+
+    try:
+        cursor.execute(
+            "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges = "
+            "? WHERE id = ?",
+            datestamp,
+            buyer,
+            apples,
+            oranges,
+            order_id,
+        )
+        cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=418,
+            detail="Error updating database! Recheck your entries.\n" + str(err),
+        )
+
+    # order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
+    return Order(
+        id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
+    )
 
 
-# @app.get("/orders/{order_id}")
-# def read_order(order_id: int):
-#     # get data of order with ID "order_id"
-#     return {"item_id": order_id, "order": order_id}
+@app.get("/orders/")
+def read_order(order_id: int):
+    """Read the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+    try:
+        cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+        # cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=418,
+            detail="Error reading database! Recheck your entries.\n" + str(err),
+        )
+    row = cursor.fetchone()
+
+    return Order(
+        id=order_id,
+        datestamp=row.datestamp,
+        buyer=row.buyer,
+        apples=row.apples,
+        oranges=row.oranges,
+    )
+
+
+@app.delete("/orders/", include_in_schema=False)
+def delete_order(order_id: int):
+    """Delete the order with ID = order_id from the database and print it in the app"""
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+    try:
+        cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+        row = cursor.fetchone()
+        cursor.execute("DELETE FROM ShoppingList WHERE id = ?", order_id)
+        cursor.commit()
+    except pyodbc.DatabaseError as err:
+        raise HTTPException(
+            status_code=418,
+            detail="Error reading database! Recheck your entries.\n" + str(err),
+        )
+
+    return Order(
+        id=order_id,
+        datestamp=row.datestamp,
+        buyer=row.buyer,
+        apples=row.apples,
+        oranges=row.oranges,
+    )
+
+
+@app.post("/orders/cost/")
+def calculate_cost_of_order(order_id: int, background_tasks: BackgroundTasks):
+    """Register a task to calculate how much the order with order_id costs"""
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading order with id = {order_id}! Order does not exist.",
+        )
+
+    background_tasks.add_task(calculate_cost, cursor, order_id, row.apples, row.oranges)
+    return {"id": order_id, "status": "Request received"}
+
+
+@app.get("/orders/cost/")
+def read_cost_of_order(order_id: int):
+    """
+    Read the cost of the order with ID = order_id from the database
+    and print it in the app
+    """
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+
+    # first check if this order exists in the table with orders
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading order with id = {order_id}! Order does not exist.",
+        )
+
+    # then check if it has been requested to be in the money list
+    cursor.execute("SELECT * FROM MoneyList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading cost of order with id = {order_id}! "
+            f"Calculation of order cost was not yet been requested.",
+        )
+    else:
+        status = (
+            "Calculation successful" if row.cost is not None else "Calculation failed"
+        )
+
+    return {"id": order_id, "status": status, "cost": row.cost}
