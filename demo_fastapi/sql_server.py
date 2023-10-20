@@ -8,4 +8,4 @@ username = os.environ.get("DATABASE_USERNAME") or "sa"
 password = os.environ.get("DATABASE_PWD") or "Kend@llStr0ng!"
 
 connection_string = f"DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};\
-UID={username};PWD={password}"
+DATABASE={database};UID={username};PWD={password}"

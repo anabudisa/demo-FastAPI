@@ -9,12 +9,9 @@ class ConnectionManager:
 
     def connect(self):
         try:
-            print(self.connection_string)
             self.connection = pyodbc.connect(self.connection_string)
         except pyodbc.Error as err:
             raise ConnectionError(str(err))
-            # sqlstate = err.args[1]
-            # print(str(err))
 
     def disconnect(self):
         self.connection.close()

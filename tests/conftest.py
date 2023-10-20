@@ -22,9 +22,6 @@ def db_connection():
     connection_manager.connect()
     connection_manager.connection.autocommit = True
 
-    # cursor = connection_manager.connection.cursor()
-    # cursor.execute("create database TestDB; use TestDB;")
-
     return connection_manager
 
 
