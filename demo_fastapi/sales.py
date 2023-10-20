@@ -1,8 +1,9 @@
 from datetime import datetime
 from pydantic import PositiveInt
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from .model import Order
 from .connection_manager import get_db
+from .utils import calculate_cost
 from contextlib import asynccontextmanager
 import re
 import pyodbc  # type: ignore
@@ -188,3 +189,56 @@ def delete_order(order_id: int):
         apples=row.apples,
         oranges=row.oranges,
     )
+
+
+@app.post("/orders/cost/")
+def calculate_cost_of_order(order_id: int, background_tasks: BackgroundTasks):
+    """Register a task to calculate how much the order with order_id costs"""
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading order with id = {order_id}! Order does not exist.",
+        )
+
+    background_tasks.add_task(calculate_cost, cursor, order_id, row.apples, row.oranges)
+    return {"id": order_id, "status": "Request received"}
+
+
+@app.get("/orders/cost/")
+def read_cost_of_order(order_id: int):
+    """
+    Read the cost of the order with ID = order_id from the database
+    and print it in the app
+    """
+    cnxn = app.state.connection_manager.connection
+    cursor = cnxn.cursor()
+
+    # first check if this order exists in the table with orders
+    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading order with id = {order_id}! Order does not exist.",
+        )
+
+    # then check if it has been requested to be in the money list
+    cursor.execute("SELECT * FROM MoneyList WHERE id = ?", order_id)
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=418,
+            detail=f"Error reading cost of order with id = {order_id}! "
+            f"Calculation of order cost was not yet been requested.",
+        )
+    else:
+        status = (
+            "Calculation successful" if row.cost is not None else "Calculation failed"
+        )
+
+    return {"id": order_id, "status": status, "cost": row.cost}

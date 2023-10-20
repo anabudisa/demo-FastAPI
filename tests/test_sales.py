@@ -161,3 +161,65 @@ def test_update_order(client_test):
         "apples": 12,
         "oranges": 34,
     }
+
+
+def test_calculate_cost_of_order(client_test):
+    """
+    This should return that a request for cost calculation is received,
+    while the task is executed in the background
+    """
+    response = client_test.post("/orders/cost/", params={"order_id": 12345})
+    assert response.status_code == 200
+    assert response.json() == {"id": 12345, "status": "Request received"}
+
+
+def test_bad_id_calculate_cost_of_order(client_test):
+    """
+    This should return that a request for cost calculation can't be executed because
+    the order with this order_id does not exist
+    """
+    response = client_test.post("/orders/cost/", params={"order_id": 13579})
+    assert response.status_code == 418
+    assert response.json() == {
+        "detail": "Error reading order with id = 13579! Order does not exist."
+    }
+
+
+def test_read_cost_of_order(client_test):
+    """
+    This should return the cost of the order with specified order id, and
+    that the calculated was executed successfully or failed
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 12345})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 12345,
+        "status": "Calculation successful",
+        "cost": 80.0,
+    }
+
+
+def test_bad_id_read_cost_of_order(client_test):
+    """
+    This should return that the request for cost of the order with specified order id
+    can't be found because the order does not exist in the ShoppingList table
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 13579})
+    assert response.status_code == 418
+    assert response.json() == {
+        "detail": "Error reading order with id = 13579! Order does not exist."
+    }
+
+
+def test_bad_calc_read_cost_of_order(client_test):
+    """
+    This should return that the request for cost of the order with specified order id
+    was not successfully computed
+    """
+    response = client_test.get("/orders/cost/", params={"order_id": 75573081})
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 75573081,
+        "status": "Calculation failed",
+        "cost": None,
+    }
