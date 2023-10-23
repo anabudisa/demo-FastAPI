@@ -4,9 +4,9 @@ SHELL=/bin/bash
 
 api: poetry	## third run the app
 	source "$$( poetry env list --full-path | grep Activated | cut -d' ' -f1 )/bin/activate"
-	uvicorn demo_fastapi.sales:app --reload --host 0.0.0.0 &
+	uvicorn demo_fastapi.sales:app --reload --host 127.0.0.1 &
 	sleep 3
-	xdg-open http://0.0.0.0:8000/docs &
+	xdg-open http://127.0.0.1:8000/docs &
 
 poetry: container	## second activate poetry shell
 	poetry install

@@ -22,7 +22,3 @@ def get_db():
     connection_manager = ConnectionManager(connection_string)
     connection_manager.connect()
     return connection_manager
-
-
-if __name__ == "__main__":
-    print()
