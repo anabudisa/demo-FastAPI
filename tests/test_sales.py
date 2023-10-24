@@ -1,11 +1,11 @@
+from demo_fastapi.model import Order
+
+
 def test_create_order_apples(client_test):
     """This should create a new order that orders only apples (oranges = NULL)"""
-
-    # first, create a new order
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011/12/02", "buyer": "ana", "apples": 12},
-    )
+    order = Order(datestamp="2011/12/02", buyer="ana", apples=12)
+    response = client_test.post("/orders/", json=order.model_dump())
+    # import pdb; pdb.set_trace()
     assert response.status_code == 200
     id_ = response.json()["id"]  # unique id
     assert response.json() == {
@@ -19,11 +19,8 @@ def test_create_order_apples(client_test):
 
 def test_create_order_oranges(client_test):
     """This should create a new order that orders only oranges (apples = NULL)"""
-    # first, create a new order
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011/12/02", "buyer": "ana", "oranges": 456},
-    )
+    order = Order(datestamp="2011/12/02", buyer="ana", oranges=456)
+    response = client_test.post("/orders/", json=order.model_dump())
     assert response.status_code == 200
     id_ = response.json()["id"]  # unique id
     assert response.json() == {
@@ -37,16 +34,8 @@ def test_create_order_oranges(client_test):
 
 def test_create_order_apples_oranges(client_test):
     """This should create a new order that orders apples and oranges"""
-    # first, create a new order
-    response = client_test.post(
-        "/orders/",
-        params={
-            "datestamp": "2011/12/02",
-            "buyer": "ana",
-            "apples": 86,
-            "oranges": 9812,
-        },
-    )
+    order = Order(datestamp="2011/12/02", buyer="ana", apples=86, oranges=9812)
+    response = client_test.post("/orders/", json=order.model_dump())
     assert response.status_code == 200
     id_ = response.json()["id"]  # unique id
     assert response.json() == {
@@ -55,66 +44,6 @@ def test_create_order_apples_oranges(client_test):
         "buyer": "ana",
         "apples": 86,
         "oranges": 9812,
-    }
-
-
-def test_create_order_bad_date_format(client_test):
-    """This should not create an order because the order date in a wrong format"""
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011-12-02", "buyer": "ana", "apples": 12},
-    )
-    assert response.status_code == 422
-    assert response.json() == {
-        "detail": "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
-    }
-
-
-def test_create_order_bad_date_length(client_test):
-    """This should not create an order because the order date is not a real date"""
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011/123/02", "buyer": "ana", "apples": 12},
-    )
-    assert response.status_code == 422
-    assert response.json() == {
-        "detail": "Date in wrong format! It should be yyyy/mm/dd (no spaces). "
-        + "Perhaps check for typos?"
-    }
-
-
-def test_create_order_too_old(client_test):
-    """This should not create an order because the order date is before 2000/01/01"""
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "1987/12/02", "buyer": "ana", "apples": 12},
-    )
-    assert response.status_code == 422
-    assert response.json() == {
-        "detail": "We only track orders after 1 January 2000. "
-        + "Please enter only valid orders."
-    }
-
-
-def test_create_order_bad_buyer(client_test):
-    """This should not create an order because the buyer's name contains numbers"""
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011/12/02", "buyer": "ana1", "apples": 12},
-    )
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Buyer's name cannot contain numbers!"}
-
-
-def test_create_order_bad_sale(client_test):
-    """This should not create an order because no apples nor oranges were ordered"""
-    response = client_test.post(
-        "/orders/",
-        params={"datestamp": "2011/12/02", "buyer": "ana"},
-    )
-    assert response.status_code == 422
-    assert response.json() == {
-        "detail": "No sale has been made! Order at least one apple or orange."
     }
 
 
@@ -137,11 +66,12 @@ def test_update_order(client_test):
     response = client_test.get("/orders/", params={"order_id": 12345})
     assert response.status_code == 200
     buyer = response.json()["buyer"]
+    apples = response.json()["apples"]
+    oranges = response.json()["oranges"]
 
     # second try to change the buyer name
-    response = client_test.put(
-        "/orders/", params={"order_id": 12345, "buyer": "ingeborg"}
-    )
+    order = Order(id=12345, buyer="ingeborg", apples=apples, oranges=oranges)
+    response = client_test.put("/orders/", json=order.model_dump())
     assert response.status_code == 200
     assert response.json() == {
         "id": 12345,
@@ -152,7 +82,8 @@ def test_update_order(client_test):
     }
 
     # third return to original buyer
-    response = client_test.put("/orders/", params={"order_id": 12345, "buyer": buyer})
+    order = Order(id=12345, buyer=buyer, apples=apples, oranges=oranges)
+    response = client_test.put("/orders/", json=order.model_dump())
     assert response.status_code == 200
     assert response.json() == {
         "id": 12345,

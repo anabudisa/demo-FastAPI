@@ -9,7 +9,7 @@ class ConnectionManager:
 
     def connect(self):
         try:
-            self.connection = pyodbc.connect(self.connection_string)
+            self.connection = pyodbc.connect(self.connection_string, autocommit=True)
         except pyodbc.Error as err:
             # sqlstate = err.args[1]
             print(str(err))
