@@ -1,19 +1,17 @@
 from datetime import datetime
-from pydantic import PositiveInt
 from fastapi import FastAPI, HTTPException
 from .model import Order
 from .connection_manager import get_db
+from .odbc_execute import odbc_execute_command
 from contextlib import asynccontextmanager
-import re
-import pyodbc  # type: ignore
 import random
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(application: FastAPI):
     # At startup - start connection to the SQL server
     connection_manager = get_db()
-    app.state.connection_manager = connection_manager
+    application.state.connection_manager = connection_manager
     yield
     # At shutdown - close the connection
     connection_manager.disconnect()
@@ -23,141 +21,117 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/orders/")
-def create_order(
-    datestamp: str,
-    buyer: str,
-    apples: PositiveInt | None = None,
-    oranges: PositiveInt | None = None,
-):
+def create_order(order: Order):
     """
-    Create an order on date "datestamp", from buyer "buyer" that is buying "sale";
+    Create an order on date "datestamp", from buyer "buyer" that is buying
+    "apples" and "oranges";
     """
+    # establish connection to the database
     cnxn = app.state.connection_manager.connection
-    # check if any apples or oranges are ordered
-    if apples is None and oranges is None:
+
+    # check if date is provided
+    if order.datestamp is None:
         raise HTTPException(
             status_code=422,
-            detail="No sale has been made! Order at least one apple or orange.",
+            detail="Please provide date of the order in format yyyy/mm/dd",
         )
-
-    # check if the name contains any numbers
-    if any(char.isdigit() for char in buyer):
-        raise HTTPException(
-            status_code=422, detail="Buyer's name cannot contain numbers!"
-        )
-
-    # check date format and if it's after 1 January 2000
-    r = re.compile(r"\d{4}/\d{2}/\d{2}")
-    if len(datestamp) != 10:
+    # check if buyer's name is provided
+    if order.buyer is None:
         raise HTTPException(
             status_code=422,
-            detail="Date in wrong format! It should be yyyy/mm/dd (no spaces). "
-            + "Perhaps check for typos?",
-        )
-    if not r.match(datestamp):
-        raise HTTPException(
-            status_code=422,
-            detail="Date in wrong format! It should be yyyy/mm/dd (no spaces).",
-        )
-
-    try:
-        date_ = datetime.strptime(datestamp, "%Y/%m/%d")
-    except ValueError as err:
-        raise HTTPException(status_code=422, detail=str(err))
-
-    if date_ < datetime(2000, 1, 1):
-        raise HTTPException(
-            status_code=422,
-            detail="We only track orders after 1 January 2000. "
-            + "Please enter only valid orders.",
+            detail="Please enter buyer's name "
+            "(max 50 characters, without numbers in the name).",
         )
 
     # if everything ok, make an order
-    order_id = random.randrange(10**8)  # 12345  # uuid1().int
-    order = Order(
-        id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
-    )
+    order_id = random.randrange(10**8)
+    order.id = order_id
 
     # save to the database
-    cursor = cnxn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO ShoppingList VALUES (?,?,?,?,?)",
-            datestamp,
-            buyer,
-            apples,
-            oranges,
-            order_id,
-        )
-        cursor.commit()
-    except pyodbc.DatabaseError as err:
-        raise HTTPException(
-            status_code=500,
-            detail="Error updating database! Recheck your entries.\n" + str(err),
-        )
+    command = "INSERT INTO ShoppingList VALUES (?,?,?,?,?)"
+    odbc_execute_command(
+        cnxn,
+        command,
+        order.datestamp,
+        order.buyer,
+        order.apples,
+        order.oranges,
+        order.id,
+    )
 
     return order
 
 
 @app.put("/orders/")
-def update_order(
-    order_id: int,
-    datestamp: str | None = None,
-    buyer: str | None = None,
-    apples: PositiveInt | None = None,
-    oranges: PositiveInt | None = None,
-):
+def update_order(order: Order):
     """update order with ID = order_id"""
+    # establish connection to the database
     cnxn = app.state.connection_manager.connection
-    cursor = cnxn.cursor()
-    cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
+
+    # check what were the old values for the order with id = order.id
+    command = "SELECT * FROM ShoppingList WHERE id = ?"
+    cursor = odbc_execute_command(cnxn, command, order.id)
     row = cursor.fetchone()
-
-    datestamp = datestamp or row.datestamp
-    buyer = buyer or row.buyer
-    apples = apples or row.apples
-    oranges = oranges or row.oranges
-
-    try:
-        cursor.execute(
-            "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges = "
-            "? WHERE id = ?",
-            datestamp,
-            buyer,
-            apples,
-            oranges,
-            order_id,
-        )
-        cursor.commit()
-    except pyodbc.DatabaseError as err:
+    if row is None:
         raise HTTPException(
-            status_code=418,
-            detail="Error updating database! Recheck your entries.\n" + str(err),
+            status_code=422,
+            detail="Provided order (id) is not in the database table ShoppingList. "
+            "Please provide another id!",
         )
 
-    # order = Order(datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges)
+    # update with new value from input variable order, or keep the previous value
+    datestamp = order.datestamp or row.datestamp
+    buyer = order.buyer or row.buyer
+    apples = order.apples or row.apples
+    oranges = order.oranges or row.oranges
+
+    # update working table
+    command = (
+        "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges "
+        "= ? WHERE id = ?"
+    )
+    odbc_execute_command(cnxn, command, datestamp, buyer, apples, oranges, order.id)
+
+    # if the change passed, log the last version in the log table
+    date_changed = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    command = "INSERT INTO ShoppingListLog VALUES (?,?,?,?,?,?)"
+    odbc_execute_command(
+        cnxn,
+        command,
+        row.datestamp,
+        row.buyer,
+        row.apples,
+        row.oranges,
+        row.id,
+        date_changed,
+    )
+
     return Order(
-        id=order_id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
+        id=order.id, datestamp=datestamp, buyer=buyer, apples=apples, oranges=oranges
     )
 
 
 @app.get("/orders/")
 def read_order(order_id: int):
     """Read the order with ID = order_id from the database and print it in the app"""
+    # establish connection
     cnxn = app.state.connection_manager.connection
-    cursor = cnxn.cursor()
-    try:
-        cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
-        # cursor.commit()
-    except pyodbc.DatabaseError as err:
-        raise HTTPException(
-            status_code=418,
-            detail="Error reading database! Recheck your entries.\n" + str(err),
-        )
+
+    # read the order values from the database table
+    cursor = odbc_execute_command(
+        cnxn, "SELECT * FROM ShoppingList WHERE id = ?", order_id
+    )
     row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Provided order (id) is not in the database table ShoppingList. "
+            "Please provide another id!",
+        )
 
     return Order(
-        id=order_id,
+        id=row.id,
         datestamp=row.datestamp,
         buyer=row.buyer,
         apples=row.apples,
@@ -168,21 +142,25 @@ def read_order(order_id: int):
 @app.delete("/orders/", include_in_schema=False)
 def delete_order(order_id: int):
     """Delete the order with ID = order_id from the database and print it in the app"""
+    # establish connection and database cursor
     cnxn = app.state.connection_manager.connection
-    cursor = cnxn.cursor()
-    try:
-        cursor.execute("SELECT * FROM ShoppingList WHERE id = ?", order_id)
-        row = cursor.fetchone()
-        cursor.execute("DELETE FROM ShoppingList WHERE id = ?", order_id)
-        cursor.commit()
-    except pyodbc.DatabaseError as err:
+
+    # find the order in the database
+    cursor = odbc_execute_command(
+        cnxn, "SELECT * FROM ShoppingList WHERE id = ?", order_id
+    )
+    row = cursor.fetchone()
+    if row is None:
         raise HTTPException(
-            status_code=418,
-            detail="Error reading database! Recheck your entries.\n" + str(err),
+            status_code=422,
+            detail="Provided order (id) is not in the database table ShoppingList. "
+            "Please provide another id!",
         )
+    # and delete it from the database table
+    odbc_execute_command(cnxn, "DELETE FROM ShoppingList WHERE id = ?", order_id)
 
     return Order(
-        id=order_id,
+        id=row.id,
         datestamp=row.datestamp,
         buyer=row.buyer,
         apples=row.apples,

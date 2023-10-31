@@ -9,8 +9,7 @@ class ConnectionManager:
 
     def connect(self):
         try:
-            print(self.connection_string)
-            self.connection = pyodbc.connect(self.connection_string)
+            self.connection = pyodbc.connect(self.connection_string, autocommit=True)
         except pyodbc.Error as err:
             raise ConnectionError(str(err))
             # sqlstate = err.args[1]
@@ -24,7 +23,3 @@ def get_db():
     connection_manager = ConnectionManager(connection_string)
     connection_manager.connect()
     return connection_manager
-
-
-if __name__ == "__main__":
-    print()

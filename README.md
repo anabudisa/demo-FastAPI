@@ -14,7 +14,7 @@ Orders contain:
 
 Technicalities:
 - API is created using [FastAPI](https://fastapi.tiangolo.com/) and [pydantic](https://docs.pydantic.dev/latest/)
-- The database is saved on a MS SQL docker container using [latest docker image](https://hub.docker.com/_/microsoft-mssql-server)
+- The database is saved on a Microsoft SQL Server docker container using [latest docker image](https://hub.docker.com/_/microsoft-mssql-server)
 - We utilize [poetry](https://python-poetry.org/) to install all dependencies and run the API within a virtual environment
 
 ## Requirements
@@ -42,7 +42,7 @@ poetry shell
 ```
 - Within the poetry shell, run the API in the background using `uvicorn` and open the API docs in the browser:
 ```
-uvicorn demo_fastapi.sales:app --reload --host 0.0.0.0 &
+uvicorn demo_fastapi.sales:app --reload --host 127.0.0.1 &
 sleep 5  # optional: waits for uvicorn to start
 xdg-open http://0.0.0.0:8000/docs
 ```
