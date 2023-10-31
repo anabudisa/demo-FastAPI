@@ -19,6 +19,7 @@ pyodbc = "^4.0.39"
 black = "^23.7.0"
 ruff = "^0.0.287"
 ipython = "^8.15.0"
+mypy = "^1.5.1"
 
 
 [tool.poetry.group.test.dependencies]

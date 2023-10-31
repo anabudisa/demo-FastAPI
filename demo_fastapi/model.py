@@ -16,7 +16,7 @@ class Order(BaseModel):
         if ymd is not None:
             # check if the datetime is in format yyyy/mm/dd and after the date
             # 2000/01/01
-            r = re.compile("\d{4}/\d{2}/\d{2}")
+            r = re.compile(r"\d{4}/\d{2}/\d{2}")
             assert (
                 len(ymd) == 10
             ), "Date in wrong format! It should be yyyy/mm/dd (no spaces)."
