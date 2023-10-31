@@ -3,7 +3,7 @@ from demo_fastapi.odbc_execute import odbc_execute_command
 
 def test_odbc_insert(db_connection):
     conn = db_connection.connection
-    params = ("2011/12/02", "ana", 86, 9812, 147909898)
+    params = ("2022/02/02", "ana", 12, 34, 12345)
 
     command = "INSERT INTO ShoppingList VALUES (?,?,?,?,?)"
     # this should raise exceptions if it fails
@@ -12,7 +12,7 @@ def test_odbc_insert(db_connection):
 
 def test_odbc_update(db_connection):
     conn = db_connection.connection
-    params = ("2011/12/02", "ana", 86, 9812, 147909898)
+    params = ("2022/02/02", "johanna", 12, 34, 12345)
 
     command = (
         "UPDATE ShoppingList SET datestamp = ?, buyer = ?, apples = ?, oranges= "

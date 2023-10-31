@@ -74,7 +74,7 @@ def update_order(order: Order):
     row = cursor.fetchone()
     if row is None:
         raise HTTPException(
-            status_code=422,
+            status_code=404,
             detail="Provided order (id) is not in the database table ShoppingList. "
             "Please provide another id!",
         )
@@ -125,7 +125,7 @@ def read_order(order_id: int):
     row = cursor.fetchone()
     if row is None:
         raise HTTPException(
-            status_code=422,
+            status_code=404,
             detail="Provided order (id) is not in the database table ShoppingList. "
             "Please provide another id!",
         )
@@ -152,7 +152,7 @@ def delete_order(order_id: int):
     row = cursor.fetchone()
     if row is None:
         raise HTTPException(
-            status_code=422,
+            status_code=404,
             detail="Provided order (id) is not in the database table ShoppingList. "
             "Please provide another id!",
         )
